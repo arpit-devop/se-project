@@ -1,32 +1,23 @@
+// Vercel serverless function entry point
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
-import { connectDB } from './config/database.js';
-
-// Export for Vercel serverless
-
+import { connectDB } from '../config/database.js';
 
 // Import routes
-import authRoutes from './routes/auth.js';
-import medicineRoutes from './routes/medicines.js';
-import prescriptionRoutes from './routes/prescriptions.js';
-import analyticsRoutes from './routes/analytics.js';
-import reorderRoutes from './routes/reorders.js';
-import chatRoutes from './routes/chat.js';
+import authRoutes from '../routes/auth.js';
+import medicineRoutes from '../routes/medicines.js';
+import prescriptionRoutes from '../routes/prescriptions.js';
+import analyticsRoutes from '../routes/analytics.js';
+import reorderRoutes from '../routes/reorders.js';
+import chatRoutes from '../routes/chat.js';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 8000;
 
-// Railway provides PORT, use it
-if (process.env.PORT) {
-  console.log(`Using Railway provided PORT: ${PORT}`);
-}
-
-// Middleware
+// CORS configuration for Vercel
 const corsOrigins = process.env.CORS_ORIGINS === '*' 
   ? '*' 
   : (process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://127.0.0.1:3000']);
@@ -92,46 +83,47 @@ app.use((req, res) => {
   res.status(404).json({ detail: 'Route not found' });
 });
 
-// Start server
-const startServer = async () => {
-  try {
-    await connectDB();
-    const server = app.listen(PORT, '0.0.0.0', () => {
-      console.log(`✓ Server running on http://0.0.0.0:${PORT}`);
-      console.log(`✓ API available at http://0.0.0.0:${PORT}/api`);
-    });
-    
-    // Handle server errors
-    server.on('error', (error) => {
-      console.error('Server error:', error);
-    });
-    
-    // Graceful shutdown
-    process.on('SIGTERM', () => {
-      console.log('SIGTERM received, shutting down gracefully...');
-      server.close(() => {
-        mongoose.connection.close();
-        process.exit(0);
-      });
-    });
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    // Don't exit in serverless environments
-    if (process.env.VERCEL) {
-      console.error('Running in Vercel, will retry on next request');
-    } else {
-      process.exit(1);
-    }
+// Connect to MongoDB on cold start
+let isConnected = false;
+let connectionPromise = null;
+
+async function ensureConnection() {
+  if (isConnected) {
+    return;
   }
-};
-
-// Export app for Vercel serverless
-export default app;
-
-// For regular Node.js server (Render, Railway, local)
-if (!process.env.VERCEL) {
-  startServer();
+  
+  if (connectionPromise) {
+    return connectionPromise;
+  }
+  
+  connectionPromise = connectDB()
+    .then(() => {
+      isConnected = true;
+      console.log('MongoDB connected (serverless)');
+    })
+    .catch((error) => {
+      console.error('MongoDB connection error:', error);
+      connectionPromise = null;
+      throw error;
+    });
+  
+  return connectionPromise;
 }
 
-
+// Vercel serverless handler
+export default async function handler(req, res) {
+  try {
+    // Ensure MongoDB connection
+    await ensureConnection();
+    
+    // Handle the request
+    return app(req, res);
+  } catch (error) {
+    console.error('Handler error:', error);
+    return res.status(500).json({ 
+      detail: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+}
 
