@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: pharmaventory-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: MONGO_URL
+        sync: false
+      - key: DB_NAME
+        value: pharmaventory
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        fromService:
+          type: web
+          name: pharmaventory-backend
+          property: port
+
