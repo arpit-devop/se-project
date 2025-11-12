@@ -18,6 +18,11 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+// Railway provides PORT, use it
+if (process.env.PORT) {
+  console.log(`Using Railway provided PORT: ${PORT}`);
+}
+
 // Middleware
 app.use(cors({
   origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://127.0.0.1:3000'],

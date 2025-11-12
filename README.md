@@ -1,8 +1,6 @@
 # Pharmaventory
 
-Demo full-stack pharmacy inventory management sample. The backend is a **Node.js + Express + MongoDB** service. The frontend is a React single page app bootstrapped with Create React App + CRACO.
-
-> **Note**: The backend has been migrated from Python/FastAPI to Node.js. See `MIGRATION_GUIDE.md` for details.
+Full-stack pharmacy inventory management system built with **MERN Stack** (MongoDB, Express, React, Node.js).
 
 ## Requirements
 
@@ -60,15 +58,23 @@ Outputs static assets to `frontend/build`.
 
 ## Quick Start
 
-1. **Update MongoDB password** in `backend-node/.env` (replace `<db_password>`)
+1. **Update MongoDB password** in `backend-node/.env`
 2. **Start backend**: `cd backend-node && npm start`
 3. **Start frontend**: `cd frontend && npm start`
 
-See `SETUP.md` for detailed instructions.
+## Railway Deployment
+
+1. Connect your GitHub repo to Railway
+2. Set environment variables in Railway dashboard:
+   - `MONGO_URL` - Your MongoDB Atlas connection string
+   - `DB_NAME` - Database name (default: pharmaventory)
+   - `JWT_SECRET` - Secret key for JWT tokens
+   - `CORS_ORIGINS` - Allowed origins (e.g., your Railway frontend URL)
+3. Railway will automatically detect and deploy the backend
 
 ## Notes
 
-- MongoDB Atlas connection is configured - just update your password in `.env`
-- All API endpoints match the original structure (no frontend changes needed)
-- AI features (prescription validation & chat) are placeholders and can be integrated later
+- Backend runs on port 8000 (or Railway assigned port)
+- Frontend should be deployed separately or use Railway's static file serving
+- MongoDB Atlas connection required
 

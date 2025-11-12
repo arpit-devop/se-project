@@ -1,0 +1,10 @@
+# Railway ignore file
+__MACOSX/
+backend/
+tests/
+*.md
+!README.md
+node_modules/
+.env.local
+.DS_Store
+
