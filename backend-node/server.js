@@ -66,6 +66,23 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Pharmaventory API is running' });
 });
 
+// API info endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Pharmaventory API',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      medicines: '/api/medicines',
+      prescriptions: '/api/prescriptions',
+      analytics: '/api/analytics',
+      reorders: '/api/reorders',
+      chat: '/api/chat'
+    }
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/medicines', medicineRoutes);

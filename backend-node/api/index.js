@@ -57,6 +57,23 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Pharmaventory API is running' });
 });
 
+// API info endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Pharmaventory API',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      medicines: '/api/medicines',
+      prescriptions: '/api/prescriptions',
+      analytics: '/api/analytics',
+      reorders: '/api/reorders',
+      chat: '/api/chat'
+    }
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/medicines', medicineRoutes);
@@ -88,42 +105,56 @@ let isConnected = false;
 let connectionPromise = null;
 
 async function ensureConnection() {
-  if (isConnected) {
+  // Check if already connected
+  if (isConnected && mongoose.connection.readyState === 1) {
     return;
   }
   
+  // If connection is in progress, wait for it
   if (connectionPromise) {
     return connectionPromise;
   }
   
+  // Start new connection
   connectionPromise = connectDB()
     .then(() => {
       isConnected = true;
       console.log('MongoDB connected (serverless)');
+      return true;
     })
     .catch((error) => {
       console.error('MongoDB connection error:', error);
       connectionPromise = null;
-      throw error;
+      isConnected = false;
+      // Don't throw, let requests continue (might retry later)
+      return false;
     });
   
   return connectionPromise;
 }
 
 // Vercel serverless handler
+// For Vercel, we need to properly handle the Express app
 export default async function handler(req, res) {
-  try {
-    // Ensure MongoDB connection
-    await ensureConnection();
+  // Ensure MongoDB connection (non-blocking, don't await)
+  ensureConnection().catch(err => {
+    console.error('MongoDB connection error in handler:', err);
+  });
+  
+  // Return a promise that resolves when Express finishes
+  return new Promise((resolve) => {
+    // Express will handle req/res
+    app(req, res);
     
-    // Handle the request
-    return app(req, res);
-  } catch (error) {
-    console.error('Handler error:', error);
-    return res.status(500).json({ 
-      detail: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    // Wait for response to finish
+    res.on('finish', () => {
+      resolve();
     });
-  }
+    
+    // Also resolve on close (in case finish doesn't fire)
+    res.on('close', () => {
+      resolve();
+    });
+  });
 }
 
