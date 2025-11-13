@@ -119,6 +119,7 @@ app.get('/api', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+console.log('✓ Auth routes registered: /api/auth/register, /api/auth/login, /api/auth/me');
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/analytics', analyticsRoutes);
@@ -138,9 +139,14 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
+// 404 handler (must be last)
 app.use((req, res) => {
-  res.status(404).json({ detail: 'Route not found' });
+  console.log(`404 - Route not found: ${req.method} ${req.path}`);
+  res.status(404).json({ 
+    detail: 'Route not found',
+    method: req.method,
+    path: req.path
+  });
 });
 
 // Connect to MongoDB on cold start

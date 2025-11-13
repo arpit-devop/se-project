@@ -105,5 +105,10 @@ router.get('/me', async (req, res) => {
   }
 });
 
+// Test route to verify auth router is working
+router.get('/test', (req, res) => {
+  res.json({ message: 'Auth routes are working!', routes: ['/register', '/login', '/me'] });
+});
+
 export default router;
 
