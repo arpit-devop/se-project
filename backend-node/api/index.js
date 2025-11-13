@@ -34,7 +34,16 @@ app.options('*', (req, res) => {
 // CORS configuration for Vercel
 let corsOrigins = '*'; // Default to allow all
 
-if (process.env.CORS_ORIGINS) {
+// Use FRONTEND_ORIGIN if set, otherwise use CORS_ORIGINS
+if (process.env.FRONTEND_ORIGIN) {
+  const frontendOrigin = process.env.FRONTEND_ORIGIN.replace(/\/+$/, ''); // Remove trailing slashes
+  corsOrigins = [
+    frontendOrigin,
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
+  ];
+  console.log('✅ Using FRONTEND_ORIGIN:', frontendOrigin);
+} else if (process.env.CORS_ORIGINS) {
   if (process.env.CORS_ORIGINS === '*') {
     corsOrigins = '*';
   } else {
