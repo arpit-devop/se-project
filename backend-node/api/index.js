@@ -79,6 +79,12 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Debug middleware - log all requests
+app.use((req, res, next) => {
+  console.log(`[${req.method}] ${req.path} - Body:`, req.body ? 'present' : 'empty');
+  next();
+});
+
 // Root route
 app.get('/', (req, res) => {
   res.json({ 
@@ -121,41 +127,60 @@ app.get('/api', (req, res) => {
 });
 
 // Direct auth endpoints (FIX for route not found)
+console.log('🔵 Registering POST /api/auth/login route...');
 app.post('/api/auth/login', async (req, res) => {
+  console.log('🟢 === LOGIN ROUTE HIT ===');
+  console.log('🟢 Request body:', JSON.stringify(req.body));
+  console.log('🟢 Request path:', req.path);
+  console.log('🟢 Request method:', req.method);
+  
   try {
-    console.log('Login request received');
     const { email, password } = req.body;
     
+    if (!email || !password) {
+      console.log('❌ Missing email or password');
+      return res.status(400).json({ detail: 'Email and password required' });
+    }
+    
+    console.log('🔍 Looking for user:', email);
     const user = await User.findOne({ email });
     if (!user) {
+      console.log('❌ User not found');
       return res.status(401).json({ detail: 'Invalid credentials' });
     }
     
+    console.log('🔍 Validating password...');
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
+      console.log('❌ Invalid password');
       return res.status(401).json({ detail: 'Invalid credentials' });
     }
     
+    console.log('✅ Password valid, generating token...');
     const token = jwt.sign(
       { sub: user.email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
     
+    console.log('✅ Login successful');
     res.json({
       access_token: token,
       token_type: 'bearer',
       user: user.toJSON()
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('❌ Login error:', error);
     res.status(500).json({ detail: error.message });
   }
 });
+console.log('✅ POST /api/auth/login route registered');
 
+console.log('🔵 Registering POST /api/auth/register route...');
 app.post('/api/auth/register', async (req, res) => {
+  console.log('🟢 === REGISTER ROUTE HIT ===');
+  console.log('🟢 Request body:', JSON.stringify(req.body));
   try {
-    console.log('Register request received');
     const { email, password, full_name, role = 'supplier' } = req.body;
     
     const existing = await User.findOne({ email });
@@ -178,21 +203,44 @@ app.post('/api/auth/register', async (req, res) => {
       { expiresIn: '7d' }
     );
     
+    console.log('✅ Registration successful');
     res.json({
       access_token: token,
       token_type: 'bearer',
       user: user.toJSON()
     });
   } catch (error) {
-    console.error('Register error:', error);
+    console.error('❌ Register error:', error);
     res.status(500).json({ detail: error.message });
   }
 });
+console.log('✅ POST /api/auth/register route registered');
 
-// API Routes - Register BEFORE error handlers
+// API Routes - Register /me endpoint
 console.log('Registering API routes...');
-app.use('/api/auth', authRoutes);
-console.log('✓ Auth routes: POST /api/auth/register, POST /api/auth/login, GET /api/auth/me');
+// Only register /me endpoint, login/register are direct routes
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ detail: 'No token provided' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findOne({ email: decoded.sub });
+    
+    if (!user) {
+      return res.status(401).json({ detail: 'User not found' });
+    }
+    
+    res.json(user.toJSON());
+  } catch (error) {
+    res.status(401).json({ detail: 'Invalid token' });
+  }
+});
+console.log('✓ Direct auth routes: POST /api/auth/login, POST /api/auth/register, GET /api/auth/me');
 
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
@@ -214,13 +262,23 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Debug: Log all unmatched routes before 404
+app.use((req, res, next) => {
+  console.log(`⚠️  Unmatched route: ${req.method} ${req.path}`);
+  console.log(`⚠️  Original URL: ${req.originalUrl}`);
+  console.log(`⚠️  Query:`, req.query);
+  next();
+});
+
 // 404 handler (must be last)
 app.use((req, res) => {
-  console.log(`404 - Route not found: ${req.method} ${req.path}`);
+  console.log(`❌ 404 - Route not found: ${req.method} ${req.path}`);
+  console.log(`❌ Full URL: ${req.protocol}://${req.get('host')}${req.originalUrl}`);
   res.status(404).json({ 
     detail: 'Route not found',
     method: req.method,
-    path: req.path
+    path: req.path,
+    originalUrl: req.originalUrl
   });
 });
 
