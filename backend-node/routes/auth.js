@@ -5,6 +5,12 @@ import User from '../models/User.js';
 
 const router = express.Router();
 
+// Debug: Log all requests to auth router
+router.use((req, res, next) => {
+  console.log(`Auth route hit: ${req.method} ${req.path}`);
+  next();
+});
+
 // Register
 router.post('/register', async (req, res) => {
   try {

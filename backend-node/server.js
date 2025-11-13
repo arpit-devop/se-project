@@ -2,7 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { connectDB } from './config/database.js';
+import User from './models/User.js';
 
 // Export for Vercel serverless
 
@@ -62,7 +65,8 @@ if (process.env.CORS_ORIGINS) {
   ];
 }
 
-app.use(cors({
+// CORS middleware
+const corsMiddleware = cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
@@ -80,7 +84,9 @@ app.use(cors({
   maxAge: 86400,
   preflightContinue: false,
   optionsSuccessStatus: 204
-}));
+});
+
+app.use(corsMiddleware);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -126,14 +132,86 @@ app.get('/api', (req, res) => {
   });
 });
 
-// API Routes
+// Direct auth endpoints (FIX for route not found)
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    console.log('Login request received');
+    const { email, password } = req.body;
+    
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ detail: 'Invalid credentials' });
+    }
+    
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ detail: 'Invalid credentials' });
+    }
+    
+    const token = jwt.sign(
+      { sub: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    res.json({
+      access_token: token,
+      token_type: 'bearer',
+      user: user.toJSON()
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ detail: error.message });
+  }
+});
+
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    console.log('Register request received');
+    const { email, password, full_name, role = 'supplier' } = req.body;
+    
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ detail: 'Email already registered' });
+    }
+    
+    const user = new User({
+      email,
+      password,
+      full_name,
+      role
+    });
+    
+    await user.save();
+    
+    const token = jwt.sign(
+      { sub: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    res.json({
+      access_token: token,
+      token_type: 'bearer',
+      user: user.toJSON()
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    res.status(500).json({ detail: error.message });
+  }
+});
+
+// API Routes - Register BEFORE error handlers
+console.log('Registering API routes...');
 app.use('/api/auth', authRoutes);
-console.log('✓ Auth routes registered: /api/auth/register, /api/auth/login, /api/auth/me');
+console.log('✓ Auth routes: POST /api/auth/register, POST /api/auth/login, GET /api/auth/me');
+
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/reorders', reorderRoutes);
 app.use('/api/chat', chatRoutes);
+console.log('✓ All API routes registered');
 
 // Error handling middleware
 app.use((err, req, res, next) => {
