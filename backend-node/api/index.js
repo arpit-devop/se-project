@@ -17,17 +17,60 @@ dotenv.config();
 
 const app = express();
 
+// Handle preflight requests FIRST (before CORS middleware)
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+  res.header('Access-Control-Allow-Origin', origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS, PUT');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400');
+  res.sendStatus(204);
+});
+
 // CORS configuration for Vercel
-const corsOrigins = process.env.CORS_ORIGINS === '*' 
-  ? '*' 
-  : (process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://127.0.0.1:3000']);
+let corsOrigins = '*'; // Default to allow all
+
+if (process.env.CORS_ORIGINS) {
+  if (process.env.CORS_ORIGINS === '*') {
+    corsOrigins = '*';
+  } else {
+    corsOrigins = process.env.CORS_ORIGINS.split(',').map(origin => origin.trim());
+    // Always include localhost for development
+    if (!corsOrigins.includes('http://localhost:3000')) {
+      corsOrigins.push('http://localhost:3000');
+    }
+    if (!corsOrigins.includes('http://127.0.0.1:3000')) {
+      corsOrigins.push('http://127.0.0.1:3000');
+    }
+  }
+} else {
+  // Default origins for development
+  corsOrigins = [
+    'https://se-frontend-lyart.vercel.app',
+    'http://localhost:3000', 
+    'http://127.0.0.1:3000'
+  ];
+}
 
 app.use(cors({
-  origin: corsOrigins,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (corsOrigins === '*' || corsOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all for now
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  maxAge: 86400
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS', 'PUT'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  maxAge: 86400,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 app.use(express.json({ limit: '10mb' }));
