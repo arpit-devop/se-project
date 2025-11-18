@@ -1,38 +1,47 @@
 import express from 'express';
-import Medicine from '../models/Medicine.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { randomUUID } from 'crypto';
+import aiChatbot from '../services/aiChatbot.js';
 
 const router = express.Router();
 
 router.use(authenticateToken);
 
-// AI Chatbot (placeholder - AI integration can be added later)
+// World's Best AI Chatbot for Pharmacy Inventory
 router.post('/', async (req, res) => {
   try {
     const { message, session_id } = req.body;
+    const userId = req.user?.id || req.user?.email || 'anonymous';
     const sessionId = session_id || randomUUID();
 
-    // Get medicine data for context
-    const medicines = await Medicine.find({}).limit(20);
+    if (!message || !message.trim()) {
+      return res.json({
+        response: "Please send me a message! I'm here to help with your pharmacy inventory. 😊",
+        session_id: sessionId,
+        intent: 'error'
+      });
+    }
 
-    let medicine_context = 'Available medicines in inventory:\n';
-    medicines.forEach(med => {
-      medicine_context += `- ${med.name} (${med.generic_name}): ${med.quantity} ${med.unit}, Category: ${med.category}\n`;
-    });
+    console.log(`[Chat] Processing message from user ${userId}, session ${sessionId}:`, message.substring(0, 50));
 
-    // Placeholder response - AI integration can be added here
-    const response = `AI chat is not available in this environment. However, I can see you have ${medicines.length} medicines in inventory.`;
+    // Process message with AI chatbot
+    const result = await aiChatbot.processMessage(message.trim(), sessionId, userId);
+
+    console.log(`[Chat] Response generated, intent: ${result.intent}`);
 
     res.json({
-      response,
-      session_id: sessionId
+      response: result.response,
+      session_id: sessionId,
+      intent: result.intent,
+      suggestions: result.suggestions
     });
   } catch (error) {
-    console.error('Chat error:', error);
+    console.error('[Chat] Error processing message:', error);
+    console.error('[Chat] Error stack:', error.stack);
     res.json({
-      response: "I'm here to help with medicine inventory queries. Please try again.",
-      session_id: req.body.session_id || randomUUID()
+      response: "I encountered an issue processing your request. Please try again, or ask me something like 'Show inventory' or 'Check low stock'.",
+      session_id: req.body.session_id || randomUUID(),
+      intent: 'error'
     });
   }
 });
