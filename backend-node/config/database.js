@@ -81,12 +81,13 @@ export const connectDB = async () => {
     console.error('\nConnection string used (password hidden):', 
       process.env.MONGO_URL?.replace(/:[^:@]+@/, ':****@'));
     
-    // Don't exit in production, let it retry
-    if (process.env.NODE_ENV !== 'production') {
-      process.exit(1);
-    } else {
+    // Don't exit in production/Railway, let it retry
+    if (process.env.RAILWAY || process.env.NODE_ENV === 'production') {
       console.error('\n⏳ Will retry connection in 10 seconds...');
       setTimeout(() => connectDB(), 10000);
+    } else {
+      // Only exit in local development
+      process.exit(1);
     }
   }
 };

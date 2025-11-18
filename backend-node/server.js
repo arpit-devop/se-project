@@ -306,10 +306,15 @@ app.use((req, res) => {
 // Start server
 const startServer = async () => {
   try {
-    await connectDB();
+    // Try to connect to DB, but don't block server startup
+    connectDB().catch(err => {
+      console.error('Initial DB connection failed, will retry:', err.message);
+    });
+    
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`✓ Server running on http://0.0.0.0:${PORT}`);
       console.log(`✓ API available at http://0.0.0.0:${PORT}/api`);
+      console.log(`✓ Health check: http://0.0.0.0:${PORT}/health`);
     });
     
     // Handle server errors
@@ -327,8 +332,11 @@ const startServer = async () => {
     });
   } catch (error) {
     console.error('Failed to start server:', error);
-    // Don't exit in serverless environments
-    if (process.env.VERCEL) {
+    // Don't exit in production/Railway, let it retry
+    if (process.env.RAILWAY || process.env.NODE_ENV === 'production') {
+      console.error('Will retry in 5 seconds...');
+      setTimeout(() => startServer(), 5000);
+    } else if (process.env.VERCEL) {
       console.error('Running in Vercel, will retry on next request');
     } else {
       process.exit(1);
