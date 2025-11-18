@@ -136,7 +136,7 @@ app.get('/api', (req, res) => {
     status: 'ok',
     message: 'Pharmaventory API',
     version: '1.0.0',
-    endpoints: {
+      endpoints: {
       auth: '/api/auth',
       medicines: '/api/medicines',
       prescriptions: '/api/prescriptions',
